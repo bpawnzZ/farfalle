@@ -6,7 +6,7 @@ from typing import Generator
 
 import logfire
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, APIRouter
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
@@ -91,56 +91,57 @@ def create_app() -> FastAPI:
         strtobool(os.getenv("RATE_LIMIT_ENABLED", False)),
         os.getenv("REDIS_URL"),
     )
+    
+    router = APIRouter(prefix="/api")
+    
+    @router.post("/chat")
+    @app.state.limiter.limit("4/min")
+    async def chat(
+        chat_request: ChatRequest, request: Request, session: Session = Depends(get_session)
+    ) -> Generator[ChatResponseEvent, None, None]:
+        async def generator():
+            try:
+                validate_model(chat_request.model)
+                stream_fn = (
+                    stream_pro_search_qa if chat_request.pro_search else stream_qa_objects
+                )
+                async for obj in stream_fn(request=chat_request, session=session):
+                    if await request.is_disconnected():
+                        break
+                    yield json.dumps(jsonable_encoder(obj))
+                    await asyncio.sleep(0)
+            except Exception as e:
+                print(traceback.format_exc())
+                yield create_error_event(str(e))
+                await asyncio.sleep(0)
+                return
+
+        return EventSourceResponse(generator(), media_type="text/event-stream")  # type: ignore
+
+    @router.get("/history")
+    async def recents(session: Session = Depends(get_session)) -> ChatHistoryResponse:
+        DB_ENABLED = strtobool(os.environ.get("DB_ENABLED", "true"))
+        if DB_ENABLED:
+            try:
+                history = get_chat_history(session=session)
+                return ChatHistoryResponse(snapshots=history)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Chat history is not available when DB is disabled. Please try self-hosting the app by following the instructions here: https://github.com/rashadphz/farfalle",
+            )
+
+    @router.get("/thread/{thread_id}")
+    async def thread(
+        thread_id: int, session: Session = Depends(get_session)
+    ) -> ThreadResponse:
+        thread = get_thread(session=session, thread_id=thread_id)
+        return thread
+    
+    app.include_router(router)
     return app
 
 
 app = create_app()
-
-
-@app.post("/chat")
-@app.state.limiter.limit("4/min")
-async def chat(
-    chat_request: ChatRequest, request: Request, session: Session = Depends(get_session)
-) -> Generator[ChatResponseEvent, None, None]:
-    async def generator():
-        try:
-            validate_model(chat_request.model)
-            stream_fn = (
-                stream_pro_search_qa if chat_request.pro_search else stream_qa_objects
-            )
-            async for obj in stream_fn(request=chat_request, session=session):
-                if await request.is_disconnected():
-                    break
-                yield json.dumps(jsonable_encoder(obj))
-                await asyncio.sleep(0)
-        except Exception as e:
-            print(traceback.format_exc())
-            yield create_error_event(str(e))
-            await asyncio.sleep(0)
-            return
-
-    return EventSourceResponse(generator(), media_type="text/event-stream")  # type: ignore
-
-
-@app.get("/history")
-async def recents(session: Session = Depends(get_session)) -> ChatHistoryResponse:
-    DB_ENABLED = strtobool(os.environ.get("DB_ENABLED", "true"))
-    if DB_ENABLED:
-        try:
-            history = get_chat_history(session=session)
-            return ChatHistoryResponse(snapshots=history)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Chat history is not available when DB is disabled. Please try self-hosting the app by following the instructions here: https://github.com/rashadphz/farfalle",
-        )
-
-
-@app.get("/thread/{thread_id}")
-async def thread(
-    thread_id: int, session: Session = Depends(get_session)
-) -> ThreadResponse:
-    thread = get_thread(session=session, thread_id=thread_id)
-    return thread
