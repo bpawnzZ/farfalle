@@ -12,9 +12,13 @@ export const env = createEnv({
   },
   runtimeEnv: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
-    NEXT_PUBLIC_LOCAL_MODE_ENABLED:
-      process.env.NEXT_PUBLIC_LOCAL_MODE_ENABLED?.toLowerCase() === "true",
-    NEXT_PUBLIC_PRO_MODE_ENABLED:
-      process.env.NEXT_PUBLIC_PRO_MODE_ENABLED?.toLowerCase() === "true",
+    NEXT_PUBLIC_LOCAL_MODE_ENABLED: 
+      process.env.NEXT_PUBLIC_LOCAL_MODE_ENABLED === "true" || 
+      process.env.NEXT_PUBLIC_LOCAL_MODE_ENABLED === "True" ||
+      process.env.NEXT_PUBLIC_LOCAL_MODE_ENABLED === "1",
+    NEXT_PUBLIC_PRO_MODE_ENABLED: 
+      process.env.NEXT_PUBLIC_PRO_MODE_ENABLED === "true" || 
+      process.env.NEXT_PUBLIC_PRO_MODE_ENABLED === "True" ||
+      process.env.NEXT_PUBLIC_PRO_MODE_ENABLED === "1",
   },
 });
