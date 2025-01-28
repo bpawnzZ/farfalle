@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository.toLowerCase() }}
+  IMAGE_NAME: ${{ format('{0}', github.repository) | lower }}
 
 jobs:
   build-and-push:
