@@ -25,8 +25,8 @@ jobs:
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          dockerfile: src/backend/Dockerfile
+          context: src/backend
+          file: src/backend/Dockerfile
           push: true
           tags: |
             ghcr.io/bpawnzz/backend:latest
@@ -35,8 +35,8 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          dockerfile: src/frontend/Dockerfile
+          context: src/frontend
+          file: src/frontend/Dockerfile
           push: true
           tags: |
             ghcr.io/bpawnzz/frontend:latest
