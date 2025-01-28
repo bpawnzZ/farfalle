@@ -15,6 +15,7 @@ WORKDIR /workspace
 
 # Copy dependency files to avoid cache invalidations
 COPY pyproject.toml poetry.lock ./
+COPY README.md ./
 
 COPY src/backend/ src/backend/
 
